@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Step {
   message: string;
@@ -12,51 +12,55 @@ interface Step {
 
 type AppState = "idle" | "researching" | "done" | "error";
 
-// ── Spinner ──────────────────────────────────────────────────────────────────
+// ── Spinner (orbital ring) ────────────────────────────────────────────────────
 
 function Spinner() {
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        width: 14,
-        height: 14,
-        border: "2px solid #c7d4e8",
-        borderTopColor: "#3b82f6",
-        borderRadius: "50%",
-        animation: "spin 0.7s linear infinite",
-        flexShrink: 0,
-      }}
-    />
-  );
+  return <span className="spinner-ring" />;
 }
 
-// ── Checkmark ────────────────────────────────────────────────────────────────
+// ── Checkmark ─────────────────────────────────────────────────────────────────
 
 function Check() {
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: 14,
-        height: 14,
-        borderRadius: "50%",
-        background: "#22c55e",
-        flexShrink: 0,
-      }}
-    >
+    <span className="step-check">
       <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
         <path
           d="M1.5 4L3.2 5.8L6.5 2.2"
-          stroke="white"
-          strokeWidth="1.4"
+          stroke="currentColor"
+          strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
       </svg>
     </span>
+  );
+}
+
+// ── Logo mark ─────────────────────────────────────────────────────────────────
+
+function LogoMark() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <circle cx="11" cy="11" r="7" stroke="url(#logo-g)" strokeWidth="1.8" />
+      <path
+        d="M16.5 16.5L21 21"
+        stroke="url(#logo-g)"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8 11h6M11 8v6"
+        stroke="url(#logo-g)"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <defs>
+        <linearGradient id="logo-g" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#5b9dff" />
+          <stop offset="1" stopColor="#7c6dfa" />
+        </linearGradient>
+      </defs>
+    </svg>
   );
 }
 
@@ -70,6 +74,7 @@ export default function Home() {
   const [report, setReport] = useState("");
   const [error, setError] = useState("");
   const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const reset = useCallback(() => {
@@ -130,7 +135,6 @@ export default function Home() {
 
           if (type === "status") {
             setSteps((prev) => {
-              // mark previous step done, add new active step
               const updated = prev.map((s) => ({ ...s, done: true }));
               return [...updated, { message: payload as string, done: false }];
             });
@@ -160,48 +164,49 @@ export default function Home() {
     [handleResearch]
   );
 
+  const handleDownload = useCallback(() => {
+    const filename =
+      topic.trim().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_-]/g, "") ||
+      "report";
+    const blob = new Blob([report], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filename}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [topic, report]);
+
   const handleDownloadPdf = useCallback(async () => {
     if (pdfGenerating) return;
     setPdfGenerating(true);
-
     try {
-      // Dynamic import keeps this browser-only (no SSR)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mod = await import("html2pdf.js") as any;
+      const mod = (await import("html2pdf.js")) as any;
       const html2pdf = (mod.default ?? mod) as typeof import("html2pdf.js");
 
-      const filename =
-        topic.trim().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_-]/g, "") || "report";
-
-      // Build an off-screen container. Attaching it to <body> lets the browser
-      // compute styles for .report-body so html2canvas captures them correctly.
       const wrapper = document.createElement("div");
       wrapper.style.cssText =
         "position:fixed;left:-9999px;top:0;width:800px;" +
-        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
-        "color:#1a1a2e;background:#fff;padding:0;";
+        "font-family:Georgia,serif;color:#1a1a2e;background:#fff;padding:0;";
 
-      // Topic title
       const titleEl = document.createElement("h1");
       titleEl.textContent = topic.trim();
       titleEl.style.cssText =
         "font-size:24px;font-weight:700;margin:0 0 20px;color:#1a1a2e;line-height:1.3;";
       wrapper.appendChild(titleEl);
 
-      // Search queries
       if (queries.length > 0) {
         const box = document.createElement("div");
         box.style.cssText =
           "margin-bottom:24px;padding:12px 16px;background:#f8f9fb;" +
           "border-radius:6px;border:1px solid #e8ecf1;";
-
         const label = document.createElement("p");
         label.textContent = "Search Queries";
         label.style.cssText =
           "font-size:11px;font-weight:700;letter-spacing:0.08em;" +
           "text-transform:uppercase;color:#8fa3bf;margin:0 0 10px;";
         box.appendChild(label);
-
         const row = document.createElement("div");
         row.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;";
         queries.forEach((q) => {
@@ -216,26 +221,16 @@ export default function Home() {
         wrapper.appendChild(box);
       }
 
-      // Divider
       const hr = document.createElement("hr");
       hr.style.cssText = "border:none;border-top:1px solid #e8ecf1;margin:0 0 24px;";
       wrapper.appendChild(hr);
 
-      // Clone the live rendered div by ID so html2canvas sees fully-painted HTML
       const reportEl = document.getElementById("report-content");
-      if (reportEl) {
-        wrapper.appendChild(reportEl.cloneNode(true) as HTMLElement);
-      }
+      if (reportEl) wrapper.appendChild(reportEl.cloneNode(true) as HTMLElement);
 
-      // Attach to DOM so the browser computes layout + styles for the clone
       document.body.appendChild(wrapper);
-
-      // Wait for the browser to finish laying out the newly-attached element
-      // before html2canvas takes its snapshot
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Clone the wrapper itself before passing so html2pdf cannot mutate
-      // the node we are still tracking (avoids layout shifts during capture)
       const captureTarget = wrapper.cloneNode(true) as HTMLElement;
       document.body.appendChild(captureTarget);
 
@@ -257,170 +252,328 @@ export default function Home() {
     }
   }, [topic, queries, pdfGenerating]);
 
-  const handleDownload = useCallback(() => {
-    const filename = topic.trim().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_-]/g, "") || "report";
-    const blob = new Blob([report], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${filename}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [topic, report]);
-
   const isResearching = appState === "researching";
   const isDone = appState === "done";
   const isError = appState === "error";
   const hasContent = steps.length > 0 || queries.length > 0 || report.length > 0;
 
+  // Glow class for search input wrapper
+  const glowClass = isResearching
+    ? "search-glow-wrap glow-researching"
+    : inputFocused
+    ? "search-glow-wrap glow-active"
+    : "search-glow-wrap";
+
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        position: "relative",
+        zIndex: 2,
+      }}
+    >
+      {/* ── Animated background orbs ── */}
+      <div className="orb orb-1" />
+      <div className="orb orb-2" />
+      <div className="orb orb-3" />
+
+      {/* ── Grain texture overlay ── */}
+      <div className="grain" />
+
       {/* ── Header ── */}
       <header
         style={{
-          background: "#fff",
-          borderBottom: "1px solid #e8ecf1",
-          padding: "18px 32px",
+          position: "relative",
+          zIndex: 10,
+          borderBottom: "1px solid var(--border)",
+          padding: "16px 32px",
           display: "flex",
           alignItems: "center",
-          gap: 10,
+          justifyContent: "space-between",
+          backdropFilter: "blur(12px)",
+          background: "rgba(7,11,20,0.7)",
         }}
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <circle cx="11" cy="11" r="7.5" stroke="#3b82f6" strokeWidth="1.8" />
-          <path d="M16.5 16.5L21 21" stroke="#3b82f6" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M8 11h6M11 8v6" stroke="#3b82f6" strokeWidth="1.6" strokeLinecap="round" />
-        </svg>
-        <span style={{ fontWeight: 600, fontSize: 16, color: "#1a1a2e", letterSpacing: "-0.01em" }}>
-          Research AI
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <LogoMark />
+          <span
+            style={{
+              fontFamily: "'Sora', sans-serif",
+              fontWeight: 600,
+              fontSize: 15,
+              letterSpacing: "-0.02em",
+              color: "var(--text-1)",
+            }}
+          >
+            Research
+            <span style={{ color: "var(--accent)", marginLeft: 2 }}>AI</span>
+          </span>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            background: "var(--accent-soft)",
+            border: "1px solid rgba(91,157,255,0.20)",
+            borderRadius: 20,
+            padding: "4px 12px 4px 8px",
+          }}
+        >
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: "var(--success)",
+              boxShadow: "0 0 6px var(--success)",
+              display: "inline-block",
+            }}
+          />
+          <span
+            style={{
+              fontSize: 11,
+              color: "var(--text-2)",
+              fontWeight: 500,
+              letterSpacing: "0.02em",
+            }}
+          >
+            Live
+          </span>
+        </div>
       </header>
 
       {/* ── Search bar ── */}
       <div
         style={{
-          background: "#fff",
-          borderBottom: "1px solid #e8ecf1",
-          padding: "28px 32px",
+          position: "relative",
+          zIndex: 10,
+          borderBottom: "1px solid var(--border)",
+          padding: "24px 32px",
+          backdropFilter: "blur(8px)",
+          background: "rgba(7,11,20,0.5)",
         }}
       >
         <div
           style={{
-            maxWidth: 720,
+            maxWidth: 740,
             margin: "0 auto",
             display: "flex",
             gap: 10,
+            alignItems: "center",
           }}
         >
-          <input
-            type="text"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Enter a research topic…"
-            disabled={isResearching}
-            style={{
-              flex: 1,
-              padding: "13px 18px",
-              fontSize: 16,
-              border: "1.5px solid #d1dae8",
-              borderRadius: 10,
-              outline: "none",
-              background: isResearching ? "#f5f7fa" : "#fff",
-              color: "#1a1a2e",
-              transition: "border-color 0.15s",
-              fontFamily: "inherit",
-            }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "#3b82f6"; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = "#d1dae8"; }}
-          />
+          {/* Glowing search input (21st.dev conic border pattern) */}
+          <div className={glowClass} style={{ flex: 1 }}>
+            <div
+              style={{
+                background: "var(--bg-input)",
+                border: "1px solid var(--border-mid)",
+                borderRadius: 13,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "0 16px",
+                transition: "border-color 0.2s",
+              }}
+            >
+              {/* Search icon */}
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                style={{ flexShrink: 0, opacity: 0.4 }}
+              >
+                <circle
+                  cx="11" cy="11" r="7"
+                  stroke="var(--text-1)"
+                  strokeWidth="1.8"
+                />
+                <path
+                  d="M16.5 16.5L21 21"
+                  stroke="var(--text-1)"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+
+              <input
+                type="text"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                placeholder="Enter a research topic…"
+                disabled={isResearching}
+                style={{
+                  flex: 1,
+                  padding: "14px 0",
+                  fontSize: 15,
+                  background: "transparent",
+                  border: "none",
+                  outline: "none",
+                  color: "var(--text-1)",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontWeight: 400,
+                }}
+              />
+
+              {/* Keyboard hint */}
+              {!isResearching && topic.trim() && (
+                <kbd
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-3)",
+                    background: "var(--bg-card-2)",
+                    border: "1px solid var(--border-mid)",
+                    borderRadius: 5,
+                    padding: "2px 7px",
+                    fontFamily: "'DM Sans', sans-serif",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                  }}
+                >
+                  ↵
+                </kbd>
+              )}
+            </div>
+          </div>
+
+          {/* Research button */}
           <button
             onClick={handleResearch}
             disabled={isResearching || !topic.trim()}
             style={{
-              padding: "13px 24px",
-              background: isResearching || !topic.trim() ? "#93b4e0" : "#3b82f6",
-              color: "#fff",
-              border: "none",
-              borderRadius: 10,
-              fontSize: 15,
+              padding: "14px 22px",
+              background: isResearching || !topic.trim()
+                ? "rgba(91,157,255,0.15)"
+                : "linear-gradient(135deg, #5b9dff 0%, #7c6dfa 100%)",
+              color: isResearching || !topic.trim()
+                ? "rgba(91,157,255,0.45)"
+                : "#fff",
+              border: "1px solid",
+              borderColor: isResearching || !topic.trim()
+                ? "rgba(91,157,255,0.20)"
+                : "transparent",
+              borderRadius: 12,
+              fontSize: 14,
               fontWeight: 600,
               cursor: isResearching || !topic.trim() ? "not-allowed" : "pointer",
-              fontFamily: "inherit",
+              fontFamily: "'Sora', sans-serif",
               whiteSpace: "nowrap",
-              transition: "background 0.15s",
+              letterSpacing: "-0.01em",
+              boxShadow: isResearching || !topic.trim()
+                ? "none"
+                : "0 0 20px rgba(91,157,255,0.25)",
+              transition: "all 0.2s",
             }}
           >
-            {isResearching ? "Researching…" : "Research"}
+            {isResearching ? (
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Spinner />
+                Researching…
+              </span>
+            ) : (
+              "Research"
+            )}
           </button>
         </div>
       </div>
 
-      {/* ── Main content ── */}
+      {/* ── Content area ── */}
       {(hasContent || isError) && (
         <div
+          className="content-area"
           style={{
             flex: 1,
-            maxWidth: 1100,
+            maxWidth: 1120,
             width: "100%",
             margin: "0 auto",
-            padding: "32px 24px",
+            padding: "28px 24px",
             display: "flex",
-            gap: 28,
+            gap: 24,
             alignItems: "flex-start",
+            position: "relative",
+            zIndex: 5,
           }}
-          className="content-area"
         >
           {/* ── Sidebar ── */}
           <aside
+            className="sidebar"
             style={{
-              width: 260,
+              width: 250,
               flexShrink: 0,
               display: "flex",
               flexDirection: "column",
-              gap: 20,
+              gap: 16,
             }}
-            className="sidebar"
           >
             {/* Progress steps */}
             {steps.length > 0 && (
               <div
                 style={{
-                  background: "#fff",
-                  border: "1px solid #e8ecf1",
-                  borderRadius: 12,
-                  padding: "16px 18px",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 14,
+                  padding: "18px 20px",
+                  animation: "fadeUp 0.3s ease both",
                 }}
               >
                 <p
                   style={{
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: 700,
-                    letterSpacing: "0.08em",
+                    letterSpacing: "0.1em",
                     textTransform: "uppercase",
-                    color: "#8fa3bf",
-                    marginBottom: 14,
+                    color: "var(--text-3)",
+                    marginBottom: 16,
+                    fontFamily: "'Sora', sans-serif",
                   }}
                 >
                   Progress
                 </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                   {steps.map((step, i) => (
                     <div
                       key={i}
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 9,
-                        animation: "fadeSlideIn 0.25s ease both",
+                        position: "relative",
+                        paddingLeft: 24,
+                        paddingBottom: i < steps.length - 1 ? 16 : 0,
+                        animation: `fadeUp 0.25s ease ${i * 0.06}s both`,
                       }}
                     >
-                      {step.done ? <Check /> : <Spinner />}
+                      {/* Timeline connector */}
+                      {i < steps.length - 1 && (
+                        <div
+                          className={`step-connector${step.done ? " done" : ""}`}
+                        />
+                      )}
+
+                      {/* Icon */}
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          top: 1,
+                        }}
+                      >
+                        {step.done ? <Check /> : <Spinner />}
+                      </span>
+
                       <span
                         style={{
                           fontSize: 13,
-                          color: step.done ? "#4b5563" : "#1a1a2e",
+                          color: step.done ? "var(--text-3)" : "var(--text-1)",
                           lineHeight: 1.4,
+                          display: "block",
+                          transition: "color 0.3s",
                         }}
                       >
                         {step.message}
@@ -435,39 +588,54 @@ export default function Home() {
             {queries.length > 0 && (
               <div
                 style={{
-                  background: "#fff",
-                  border: "1px solid #e8ecf1",
-                  borderRadius: 12,
-                  padding: "16px 18px",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 14,
+                  padding: "18px 20px",
+                  animation: "fadeUp 0.3s ease 0.1s both",
                 }}
               >
                 <p
                   style={{
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: 700,
-                    letterSpacing: "0.08em",
+                    letterSpacing: "0.1em",
                     textTransform: "uppercase",
-                    color: "#8fa3bf",
+                    color: "var(--text-3)",
                     marginBottom: 12,
+                    fontFamily: "'Sora', sans-serif",
                   }}
                 >
-                  Search Queries
+                  Queries
                 </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 6 }}
+                >
                   {queries.map((q, i) => (
                     <span
                       key={i}
                       style={{
-                        display: "inline-block",
-                        padding: "5px 10px",
-                        background: "#eef2fb",
-                        color: "#2563eb",
-                        borderRadius: 6,
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 7,
                         fontSize: 12,
-                        lineHeight: 1.4,
-                        animation: `chipPop 0.2s ease ${i * 0.06}s both`,
+                        color: "var(--text-2)",
+                        lineHeight: 1.45,
+                        animation: `chipIn 0.25s ease ${i * 0.07}s both`,
                       }}
                     >
+                      <span
+                        style={{
+                          width: 4,
+                          height: 4,
+                          borderRadius: "50%",
+                          background: "var(--accent)",
+                          flexShrink: 0,
+                          marginTop: 5,
+                          opacity: 0.7,
+                        }}
+                      />
                       {q}
                     </span>
                   ))}
@@ -476,157 +644,233 @@ export default function Home() {
             )}
           </aside>
 
-          {/* ── Report area ── */}
+          {/* ── Report / main area ── */}
           <main style={{ flex: 1, minWidth: 0 }}>
             {isError ? (
+              /* Error state */
               <div
                 style={{
-                  background: "#fff",
-                  border: "1px solid #fcd5d5",
-                  borderRadius: 12,
-                  padding: "28px 32px",
+                  background: "var(--bg-card)",
+                  border: "1px solid rgba(255,107,107,0.20)",
+                  borderRadius: 14,
+                  padding: "36px 40px",
                   textAlign: "center",
-                  animation: "fadeSlideIn 0.2s ease both",
+                  animation: "fadeUp 0.2s ease both",
                 }}
               >
-                <div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div>
-                <p style={{ fontSize: 15, color: "#b91c1c", marginBottom: 20, fontWeight: 500 }}>
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: "50%",
+                    background: "var(--error-soft)",
+                    border: "1px solid rgba(255,107,107,0.20)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "0 auto 16px",
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M12 8v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                      stroke="var(--error)"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <p
+                  style={{
+                    fontSize: 14,
+                    color: "var(--error)",
+                    marginBottom: 20,
+                    fontWeight: 500,
+                  }}
+                >
                   {error}
                 </p>
                 <button
-                  onClick={() => { reset(); }}
+                  onClick={reset}
                   style={{
-                    padding: "10px 22px",
-                    background: "#3b82f6",
+                    padding: "9px 22px",
+                    background: "linear-gradient(135deg, #5b9dff 0%, #7c6dfa 100%)",
                     color: "#fff",
                     border: "none",
                     borderRadius: 8,
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: 600,
                     cursor: "pointer",
-                    fontFamily: "inherit",
+                    fontFamily: "'Sora', sans-serif",
                   }}
                 >
                   Try again
                 </button>
               </div>
             ) : (
+              /* Report card (liquid glass-inspired dark card from 21st.dev) */
               <div
                 style={{
-                  background: "#fff",
-                  border: "1px solid #e8ecf1",
-                  borderRadius: 12,
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 14,
                   padding: "32px 36px",
-                  minHeight: 200,
+                  minHeight: 220,
+                  boxShadow:
+                    "0 0 0 1px var(--border), 0 20px 60px rgba(0,0,0,0.4)",
+                  /* Subtle inner highlight at top — liquid glass feel */
+                  backgroundImage:
+                    "linear-gradient(to bottom, rgba(255,255,255,0.025) 0%, transparent 60px)",
+                  animation: "fadeUp 0.3s ease both",
                 }}
               >
                 {report ? (
                   <>
                     <div id="report-content" className="report-body">
                       <ReactMarkdown>{report}</ReactMarkdown>
+
+                      {/* Blinking cursor while streaming */}
                       {isResearching && (
                         <span
                           style={{
                             display: "inline-block",
                             width: 2,
                             height: "1em",
-                            background: "#3b82f6",
+                            background: "var(--accent)",
                             marginLeft: 2,
                             verticalAlign: "text-bottom",
                             animation: "blink 1s step-start infinite",
+                            borderRadius: 1,
                           }}
                         />
                       )}
                     </div>
+
+                    {/* Download buttons */}
                     {isDone && (
                       <div
                         style={{
                           marginTop: 32,
                           paddingTop: 20,
-                          borderTop: "1px solid #e8ecf1",
+                          borderTop: "1px solid var(--border)",
                           display: "flex",
                           justifyContent: "flex-end",
-                          animation: "fadeSlideIn 0.3s ease both",
+                          gap: 10,
+                          animation: "fadeUp 0.3s ease both",
                         }}
                       >
+                        {/* Markdown download */}
                         <button
+                          className="dl-btn"
                           onClick={handleDownload}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 7,
-                            padding: "10px 20px",
-                            background: "#fff",
-                            color: "#2563eb",
-                            border: "1.5px solid #3b82f6",
-                            borderRadius: 8,
-                            fontSize: 14,
-                            fontWeight: 600,
-                            cursor: "pointer",
-                            fontFamily: "inherit",
-                            transition: "background 0.15s",
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = "#eef2fb"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; }}
                         >
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                          <svg
+                            width="13"
+                            height="13"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                          >
                             <path
                               d="M12 3v13M7 12l5 5 5-5M4 20h16"
-                              stroke="#2563eb"
-                              strokeWidth="2"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
                               strokeLinecap="round"
                               strokeLinejoin="round"
                             />
                           </svg>
-                          Download Report
+                          .md
                         </button>
+
+                        {/* PDF download */}
                         <button
+                          className="dl-btn"
                           onClick={handleDownloadPdf}
                           disabled={pdfGenerating}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 7,
-                            padding: "10px 20px",
-                            background: "#fff",
-                            color: pdfGenerating ? "#93b4e0" : "#2563eb",
-                            border: `1.5px solid ${pdfGenerating ? "#93b4e0" : "#3b82f6"}`,
-                            borderRadius: 8,
-                            fontSize: 14,
-                            fontWeight: 600,
-                            cursor: pdfGenerating ? "not-allowed" : "pointer",
-                            fontFamily: "inherit",
-                            transition: "background 0.15s",
-                          }}
-                          onMouseEnter={(e) => { if (!pdfGenerating) e.currentTarget.style.background = "#eef2fb"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; }}
                         >
                           {pdfGenerating ? (
                             <Spinner />
                           ) : (
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                              <rect x="4" y="2" width="12" height="17" rx="2" stroke="#2563eb" strokeWidth="1.8" />
-                              <path d="M16 2l4 4v15a1 1 0 01-1 1H5" stroke="#2563eb" strokeWidth="1.8" strokeLinecap="round" />
-                              <path d="M8 10h6M8 13h4" stroke="#2563eb" strokeWidth="1.6" strokeLinecap="round" />
+                            <svg
+                              width="13"
+                              height="13"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                            >
+                              <rect
+                                x="4"
+                                y="2"
+                                width="12"
+                                height="17"
+                                rx="2"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                              />
+                              <path
+                                d="M16 2l4 4v15a1 1 0 01-1 1H5"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M8 10h6M8 13h4"
+                                stroke="currentColor"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                              />
                             </svg>
                           )}
-                          {pdfGenerating ? "Generating…" : "Download PDF"}
+                          {pdfGenerating ? "Generating…" : ".pdf"}
                         </button>
                       </div>
                     )}
                   </>
                 ) : (
+                  /* Generating placeholder */
                   <div
                     style={{
                       display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      color: "#8fa3bf",
-                      fontSize: 14,
+                      flexDirection: "column",
+                      gap: 16,
+                      padding: "8px 0",
                     }}
                   >
-                    <Spinner />
-                    Generating report…
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        color: "var(--text-3)",
+                        fontSize: 14,
+                      }}
+                    >
+                      <Spinner />
+                      <span>Generating report…</span>
+                    </div>
+
+                    {/* Skeleton shimmer lines */}
+                    {[100, 85, 92, 70].map((w, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          height: 12,
+                          width: `${w}%`,
+                          borderRadius: 6,
+                          background:
+                            "linear-gradient(90deg, var(--bg-card-2) 25%, var(--border-mid) 50%, var(--bg-card-2) 75%)",
+                          backgroundSize: "200% 100%",
+                          animation: `shimmer 1.8s ease-in-out ${i * 0.15}s infinite`,
+                          opacity: 0.5,
+                        }}
+                      />
+                    ))}
+
+                    <style>{`
+                      @keyframes shimmer {
+                        0%   { background-position: 200% 0; }
+                        100% { background-position: -200% 0; }
+                      }
+                    `}</style>
                   </div>
                 )}
               </div>
@@ -635,7 +879,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── Empty state ── */}
+      {/* ── Hero / empty state ── */}
       {!hasContent && !isError && (
         <div
           style={{
@@ -644,24 +888,117 @@ export default function Home() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            color: "#8fa3bf",
             padding: "60px 24px",
-            gap: 12,
-            textAlign: "center",
+            gap: 0,
+            position: "relative",
+            zIndex: 5,
+            animation: "heroIn 0.6s ease both",
           }}
         >
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style={{ opacity: 0.4 }}>
-            <circle cx="11" cy="11" r="7.5" stroke="#8fa3bf" strokeWidth="1.5" />
-            <path d="M16.5 16.5L21 21" stroke="#8fa3bf" strokeWidth="1.5" strokeLinecap="round" />
-            <path d="M8 11h6M11 8v6" stroke="#8fa3bf" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          <p style={{ fontSize: 16, fontWeight: 500 }}>Enter a topic to start researching</p>
-          <p style={{ fontSize: 13, maxWidth: 360 }}>
-            The AI will plan queries, search the web, and write a comprehensive report.
+          {/* Large decorative search icon */}
+          <div
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: "50%",
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-mid)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 28,
+              boxShadow: "0 0 40px var(--accent-glow)",
+            }}
+          >
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+              <circle
+                cx="11"
+                cy="11"
+                r="7"
+                stroke="url(#hero-g)"
+                strokeWidth="1.6"
+              />
+              <path
+                d="M16.5 16.5L21 21"
+                stroke="url(#hero-g)"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+              <path
+                d="M8 11h6M11 8v6"
+                stroke="url(#hero-g)"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+              <defs>
+                <linearGradient
+                  id="hero-g"
+                  x1="0" y1="0" x2="24" y2="24"
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <stop stopColor="#5b9dff" />
+                  <stop offset="1" stopColor="#7c6dfa" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+
+          <h1
+            style={{
+              fontFamily: "'Sora', sans-serif",
+              fontSize: 28,
+              fontWeight: 600,
+              letterSpacing: "-0.03em",
+              color: "var(--text-1)",
+              marginBottom: 12,
+              textAlign: "center",
+            }}
+          >
+            What do you want to research?
+          </h1>
+
+          <p
+            style={{
+              fontSize: 15,
+              color: "var(--text-3)",
+              maxWidth: 380,
+              textAlign: "center",
+              lineHeight: 1.7,
+              marginBottom: 40,
+            }}
+          >
+            Enter any topic above. The AI plans targeted queries, searches the web in parallel, and writes a comprehensive report.
           </p>
+
+          {/* Feature pills */}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+            {[
+              { icon: "⚡", label: "Parallel search" },
+              { icon: "📝", label: "Streamed report" },
+              { icon: "⬇", label: "PDF & Markdown" },
+            ].map(({ icon, label }) => (
+              <div
+                key={label}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 20,
+                  padding: "6px 14px",
+                  fontSize: 12,
+                  color: "var(--text-3)",
+                  fontWeight: 500,
+                }}
+              >
+                <span style={{ fontSize: 13 }}>{icon}</span>
+                {label}
+              </div>
+            ))}
+          </div>
         </div>
       )}
-
     </div>
   );
 }
