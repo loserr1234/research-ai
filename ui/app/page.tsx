@@ -124,9 +124,11 @@ export default function Home() {
 
       // Build wrapper with fully explicit inline styles — no CSS vars or classes,
       // because html2canvas cannot resolve CSS custom properties off-screen.
+      // Use position:absolute (NOT fixed) — html2canvas cannot capture
+      // position:fixed elements that are outside the viewport.
       const wrapper = document.createElement("div");
       wrapper.style.cssText =
-        "position:fixed;left:-9999px;top:0;width:800px;padding:40px;" +
+        "position:absolute;left:-9999px;top:0;width:800px;padding:40px;" +
         "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
         "font-size:14px;line-height:1.75;color:#374151;background:#ffffff;";
 
@@ -210,19 +212,17 @@ export default function Home() {
       }
 
       document.body.appendChild(wrapper);
+      // Let the browser finish layout before html2canvas takes its snapshot
       await new Promise(r => setTimeout(r, 300));
-      const target = wrapper.cloneNode(true) as HTMLElement;
-      document.body.appendChild(target);
 
       await html2pdf().set({
         margin: [10, 15, 10, 15],
         filename: `${topic.trim()}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      }).from(target).save();
+      }).from(wrapper).save();
 
-      document.body.removeChild(target);
       document.body.removeChild(wrapper);
     } finally {
       setPdfGenerating(false);
