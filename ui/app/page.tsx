@@ -91,7 +91,7 @@ export default function Home() {
     abortRef.current = controller;
 
     try {
-      const res = await fetch("http://localhost:8000/research", {
+      const res = await fetch("https://research-ai-0xgu.onrender.com/research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic: trimmed }),
