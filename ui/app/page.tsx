@@ -122,98 +122,65 @@ export default function Home() {
       const mod = (await import("html2pdf.js")) as any;
       const html2pdf = (mod.default ?? mod) as typeof import("html2pdf.js");
 
-      // Build wrapper with fully explicit inline styles — no CSS vars or classes,
-      // because html2canvas cannot resolve CSS custom properties off-screen.
-      // Use position:absolute (NOT fixed) — html2canvas cannot capture
-      // position:fixed elements that are outside the viewport.
-      const wrapper = document.createElement("div");
-      wrapper.style.cssText =
-        "position:absolute;left:0;top:" + (document.body.scrollHeight + 200) + "px;width:800px;padding:40px;" +
-        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
-        "font-size:14px;line-height:1.75;color:#374151;background:#ffffff;";
-
-      // Title
-      const title = document.createElement("h1");
-      title.textContent = topic.trim();
-      title.style.cssText =
-        "font-size:24px;font-weight:700;color:#111827;margin:0 0 20px;" +
-        "letter-spacing:-0.02em;padding-bottom:16px;border-bottom:2px solid #e5e7eb;";
-      wrapper.appendChild(title);
-
-      // Queries
-      if (queries.length > 0) {
-        const box = document.createElement("div");
-        box.style.cssText =
-          "margin-bottom:24px;padding:14px 18px;background:#f9fafb;" +
-          "border-radius:8px;border:1px solid #e5e7eb;";
-        const label = document.createElement("p");
-        label.textContent = "Search Queries";
-        label.style.cssText =
-          "font-size:10px;font-weight:600;text-transform:uppercase;" +
-          "letter-spacing:0.08em;color:#9ca3af;margin:0 0 10px;";
-        box.appendChild(label);
-        queries.forEach(q => {
-          const chip = document.createElement("span");
-          chip.textContent = q;
-          chip.style.cssText =
-            "display:inline-block;margin:2px 4px 2px 0;padding:4px 10px;" +
-            "background:#eef2ff;color:#4f6ef7;border-radius:4px;font-size:12px;font-weight:500;";
-          box.appendChild(chip);
-        });
-        wrapper.appendChild(box);
-      }
-
-      // Report content — clone innerHTML and re-style every element explicitly
-      // so html2canvas captures real computed colors instead of unresolved vars.
+      // Get the report innerHTML and apply inline styles via a temp element
       const reportEl = document.getElementById("report-content");
+      const contentDiv = document.createElement("div");
       if (reportEl) {
-        const content = document.createElement("div");
-        content.innerHTML = reportEl.innerHTML;
-        content.style.cssText = "color:#374151;font-size:14px;line-height:1.75;";
-
-        content.querySelectorAll<HTMLElement>("h1").forEach(h => {
+        contentDiv.innerHTML = reportEl.innerHTML;
+        contentDiv.querySelectorAll<HTMLElement>("h1").forEach(h => {
           h.style.cssText = "font-size:20px;font-weight:700;color:#111827;margin:0 0 14px;letter-spacing:-0.01em;";
         });
-        content.querySelectorAll<HTMLElement>("h2").forEach(h => {
+        contentDiv.querySelectorAll<HTMLElement>("h2").forEach(h => {
           h.style.cssText = "font-size:16px;font-weight:600;color:#111827;margin:24px 0 8px;";
         });
-        content.querySelectorAll<HTMLElement>("h3").forEach(h => {
+        contentDiv.querySelectorAll<HTMLElement>("h3").forEach(h => {
           h.style.cssText = "font-size:13px;font-weight:600;color:#6b7280;margin:18px 0 6px;";
         });
-        content.querySelectorAll<HTMLElement>("p").forEach(p => {
+        contentDiv.querySelectorAll<HTMLElement>("p").forEach(p => {
           p.style.cssText = "margin:0 0 12px;color:#374151;";
         });
-        content.querySelectorAll<HTMLElement>("ul,ol").forEach(l => {
+        contentDiv.querySelectorAll<HTMLElement>("ul,ol").forEach(l => {
           l.style.cssText = "padding-left:22px;margin:0 0 12px;color:#374151;";
         });
-        content.querySelectorAll<HTMLElement>("li").forEach(li => {
+        contentDiv.querySelectorAll<HTMLElement>("li").forEach(li => {
           li.style.cssText = "margin-bottom:5px;color:#374151;";
         });
-        content.querySelectorAll<HTMLElement>("strong").forEach(s => {
+        contentDiv.querySelectorAll<HTMLElement>("strong").forEach(s => {
           s.style.cssText = "font-weight:600;color:#111827;";
         });
-        content.querySelectorAll<HTMLElement>("a").forEach(a => {
+        contentDiv.querySelectorAll<HTMLElement>("a").forEach(a => {
           a.style.cssText = "color:#4f6ef7;text-decoration:none;";
         });
-        content.querySelectorAll<HTMLElement>("code").forEach(c => {
+        contentDiv.querySelectorAll<HTMLElement>("code").forEach(c => {
           c.style.cssText =
             "font-family:'SF Mono',Menlo,monospace;font-size:12px;" +
             "background:#f3f4f6;color:#4f6ef7;padding:1px 5px;border-radius:3px;";
         });
-        content.querySelectorAll<HTMLElement>("blockquote").forEach(b => {
+        contentDiv.querySelectorAll<HTMLElement>("blockquote").forEach(b => {
           b.style.cssText =
             "border-left:3px solid #e5e7eb;padding:4px 16px;color:#9ca3af;" +
             "margin:0 0 12px;font-style:italic;";
         });
-        content.querySelectorAll<HTMLElement>("hr").forEach(hr => {
+        contentDiv.querySelectorAll<HTMLElement>("hr").forEach(hr => {
           hr.style.cssText = "border:none;border-top:1px solid #e5e7eb;margin:20px 0;";
         });
-        wrapper.appendChild(content);
       }
 
-      document.body.appendChild(wrapper);
-      // Let the browser finish layout before html2canvas takes its snapshot
-      await new Promise(r => setTimeout(r, 300));
+      const queriesHtml = queries.length > 0
+        ? `<div style="margin-bottom:24px;padding:14px 18px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
+            <p style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#9ca3af;margin:0 0 10px;">Search Queries</p>
+            ${queries.map(q => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:4px 10px;background:#eef2ff;color:#4f6ef7;border-radius:4px;font-size:12px;font-weight:500;">${q}</span>`).join("")}
+           </div>`
+        : "";
+
+      // Pass HTML string to html2pdf — it manages its own DOM element internally,
+      // avoiding all positioning/capture issues with html2canvas.
+      const htmlString =
+        `<div style="width:750px;padding:40px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;line-height:1.75;color:#374151;background:#ffffff;">` +
+        `<h1 style="font-size:24px;font-weight:700;color:#111827;margin:0 0 20px;letter-spacing:-0.02em;padding-bottom:16px;border-bottom:2px solid #e5e7eb;">${topic.trim()}</h1>` +
+        queriesHtml +
+        `<div style="color:#374151;font-size:14px;line-height:1.75;">${contentDiv.innerHTML}</div>` +
+        `</div>`;
 
       await html2pdf().set({
         margin: [10, 15, 10, 15],
@@ -221,9 +188,8 @@ export default function Home() {
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      }).from(wrapper).save();
+      }).from(htmlString).save();
 
-      document.body.removeChild(wrapper);
     } finally {
       setPdfGenerating(false);
     }
