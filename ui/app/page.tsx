@@ -3,8 +3,6 @@
 import { useState, useRef, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 interface Step {
   message: string;
   done: boolean;
@@ -12,13 +10,9 @@ interface Step {
 
 type AppState = "idle" | "researching" | "done" | "error";
 
-// ── Spinner (orbital ring) ────────────────────────────────────────────────────
-
 function Spinner() {
-  return <span className="spinner-ring" />;
+  return <span className="spinner" />;
 }
-
-// ── Checkmark ─────────────────────────────────────────────────────────────────
 
 function Check() {
   return (
@@ -26,8 +20,8 @@ function Check() {
       <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
         <path
           d="M1.5 4L3.2 5.8L6.5 2.2"
-          stroke="currentColor"
-          strokeWidth="1.5"
+          stroke="white"
+          strokeWidth="1.4"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -36,45 +30,15 @@ function Check() {
   );
 }
 
-// ── Logo mark ─────────────────────────────────────────────────────────────────
-
-function LogoMark() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <circle cx="11" cy="11" r="7" stroke="url(#logo-g)" strokeWidth="1.8" />
-      <path
-        d="M16.5 16.5L21 21"
-        stroke="url(#logo-g)"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <path
-        d="M8 11h6M11 8v6"
-        stroke="url(#logo-g)"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-      <defs>
-        <linearGradient id="logo-g" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#5b9dff" />
-          <stop offset="1" stopColor="#7c6dfa" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-}
-
-// ── Main Page ─────────────────────────────────────────────────────────────────
-
 export default function Home() {
-  const [topic, setTopic] = useState("");
-  const [appState, setAppState] = useState<AppState>("idle");
-  const [steps, setSteps] = useState<Step[]>([]);
-  const [queries, setQueries] = useState<string[]>([]);
-  const [report, setReport] = useState("");
-  const [error, setError] = useState("");
+  const [topic, setTopic]               = useState("");
+  const [appState, setAppState]         = useState<AppState>("idle");
+  const [steps, setSteps]               = useState<Step[]>([]);
+  const [queries, setQueries]           = useState<string[]>([]);
+  const [report, setReport]             = useState("");
+  const [error, setError]               = useState("");
   const [pdfGenerating, setPdfGenerating] = useState(false);
-  const [inputFocused, setInputFocused] = useState(false);
+  const [focused, setFocused]           = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const reset = useCallback(() => {
@@ -103,13 +67,11 @@ export default function Home() {
         signal: controller.signal,
       });
 
-      if (!res.ok || !res.body) {
-        throw new Error(`Server error: ${res.status}`);
-      }
+      if (!res.ok || !res.body) throw new Error(`Server error: ${res.status}`);
 
-      const reader = res.body.getReader();
+      const reader  = res.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = "";
+      let buffer    = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -125,25 +87,21 @@ export default function Home() {
           if (!raw) continue;
 
           let event: { type: string; payload: unknown };
-          try {
-            event = JSON.parse(raw);
-          } catch {
-            continue;
-          }
+          try { event = JSON.parse(raw); } catch { continue; }
 
           const { type, payload } = event;
 
           if (type === "status") {
-            setSteps((prev) => {
-              const updated = prev.map((s) => ({ ...s, done: true }));
-              return [...updated, { message: payload as string, done: false }];
-            });
+            setSteps(prev => [
+              ...prev.map(s => ({ ...s, done: true })),
+              { message: payload as string, done: false },
+            ]);
           } else if (type === "queries") {
             setQueries(payload as string[]);
           } else if (type === "token") {
-            setReport((prev) => prev + (payload as string));
+            setReport(prev => prev + (payload as string));
           } else if (type === "done") {
-            setSteps((prev) => prev.map((s) => ({ ...s, done: true })));
+            setSteps(prev => prev.map(s => ({ ...s, done: true })));
             setAppState("done");
           } else if (type === "error") {
             throw new Error(payload as string);
@@ -152,7 +110,7 @@ export default function Home() {
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
-      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      setError(err instanceof Error ? err.message : "Something went wrong.");
       setAppState("error");
     }
   }, [topic, appState, reset]);
@@ -165,14 +123,12 @@ export default function Home() {
   );
 
   const handleDownload = useCallback(() => {
-    const filename =
-      topic.trim().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_-]/g, "") ||
-      "report";
+    const name = topic.trim().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_-]/g, "") || "report";
     const blob = new Blob([report], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${filename}.md`;
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `${name}.md`;
     a.click();
     URL.revokeObjectURL(url);
   }, [topic, report]);
@@ -182,57 +138,52 @@ export default function Home() {
     setPdfGenerating(true);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mod = (await import("html2pdf.js")) as any;
+      const mod      = (await import("html2pdf.js")) as any;
       const html2pdf = (mod.default ?? mod) as typeof import("html2pdf.js");
 
-      const wrapper = document.createElement("div");
+      const wrapper  = document.createElement("div");
       wrapper.style.cssText =
         "position:fixed;left:-9999px;top:0;width:800px;" +
-        "font-family:Georgia,serif;color:#1a1a2e;background:#fff;padding:0;";
+        "font-family:-apple-system,sans-serif;color:#111;background:#fff;padding:0;";
 
-      const titleEl = document.createElement("h1");
-      titleEl.textContent = topic.trim();
-      titleEl.style.cssText =
-        "font-size:24px;font-weight:700;margin:0 0 20px;color:#1a1a2e;line-height:1.3;";
-      wrapper.appendChild(titleEl);
+      const title = document.createElement("h1");
+      title.textContent = topic.trim();
+      title.style.cssText = "font-size:22px;font-weight:600;margin:0 0 20px;";
+      wrapper.appendChild(title);
 
       if (queries.length > 0) {
         const box = document.createElement("div");
         box.style.cssText =
-          "margin-bottom:24px;padding:12px 16px;background:#f8f9fb;" +
-          "border-radius:6px;border:1px solid #e8ecf1;";
+          "margin-bottom:20px;padding:12px 16px;background:#f5f5f5;border-radius:6px;";
         const label = document.createElement("p");
         label.textContent = "Search Queries";
         label.style.cssText =
-          "font-size:11px;font-weight:700;letter-spacing:0.08em;" +
-          "text-transform:uppercase;color:#8fa3bf;margin:0 0 10px;";
+          "font-size:10px;font-weight:600;text-transform:uppercase;" +
+          "letter-spacing:0.07em;color:#888;margin:0 0 8px;";
         box.appendChild(label);
-        const row = document.createElement("div");
-        row.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;";
-        queries.forEach((q) => {
+        queries.forEach(q => {
           const chip = document.createElement("span");
           chip.textContent = q;
           chip.style.cssText =
-            "display:inline-block;padding:4px 10px;background:#eef2fb;" +
-            "color:#2563eb;border-radius:4px;font-size:12px;";
-          row.appendChild(chip);
+            "display:inline-block;margin:2px 4px 2px 0;padding:3px 9px;" +
+            "background:#e8e8e8;border-radius:4px;font-size:12px;color:#333;";
+          box.appendChild(chip);
         });
-        box.appendChild(row);
         wrapper.appendChild(box);
       }
 
       const hr = document.createElement("hr");
-      hr.style.cssText = "border:none;border-top:1px solid #e8ecf1;margin:0 0 24px;";
+      hr.style.cssText = "border:none;border-top:1px solid #e5e5e5;margin:0 0 20px;";
       wrapper.appendChild(hr);
 
-      const reportEl = document.getElementById("report-content");
-      if (reportEl) wrapper.appendChild(reportEl.cloneNode(true) as HTMLElement);
+      const el = document.getElementById("report-content");
+      if (el) wrapper.appendChild(el.cloneNode(true) as HTMLElement);
 
       document.body.appendChild(wrapper);
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise(r => setTimeout(r, 500));
 
-      const captureTarget = wrapper.cloneNode(true) as HTMLElement;
-      document.body.appendChild(captureTarget);
+      const target = wrapper.cloneNode(true) as HTMLElement;
+      document.body.appendChild(target);
 
       await html2pdf()
         .set({
@@ -242,10 +193,10 @@ export default function Home() {
           html2canvas: { scale: 2, useCORS: true, letterRendering: true },
           jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         })
-        .from(captureTarget)
+        .from(target)
         .save();
 
-      document.body.removeChild(captureTarget);
+      document.body.removeChild(target);
       document.body.removeChild(wrapper);
     } finally {
       setPdfGenerating(false);
@@ -253,329 +204,215 @@ export default function Home() {
   }, [topic, queries, pdfGenerating]);
 
   const isResearching = appState === "researching";
-  const isDone = appState === "done";
-  const isError = appState === "error";
-  const hasContent = steps.length > 0 || queries.length > 0 || report.length > 0;
-
-  // Glow class for search input wrapper
-  const glowClass = isResearching
-    ? "search-glow-wrap glow-researching"
-    : inputFocused
-    ? "search-glow-wrap glow-active"
-    : "search-glow-wrap";
+  const isDone        = appState === "done";
+  const isError       = appState === "error";
+  const hasContent    = steps.length > 0 || queries.length > 0 || report.length > 0;
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+
+      {/* ── Header ────────────────────────────────────────────────────────── */}
+      <header style={{
+        borderBottom: "1px solid var(--border)",
+        padding: "0 32px",
+        height: 52,
         display: "flex",
-        flexDirection: "column",
-        position: "relative",
-        zIndex: 2,
-      }}
-    >
-      {/* ── Animated background orbs ── */}
-      <div className="orb orb-1" />
-      <div className="orb orb-2" />
-      <div className="orb orb-3" />
-
-      {/* ── Grain texture overlay ── */}
-      <div className="grain" />
-
-      {/* ── Header ── */}
-      <header
-        style={{
-          position: "relative",
-          zIndex: 10,
-          borderBottom: "1px solid var(--border)",
-          padding: "16px 32px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          backdropFilter: "blur(12px)",
-          background: "rgba(7,11,20,0.7)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <LogoMark />
-          <span
-            style={{
-              fontFamily: "'Sora', sans-serif",
-              fontWeight: 600,
-              fontSize: 15,
-              letterSpacing: "-0.02em",
-              color: "var(--text-1)",
-            }}
-          >
-            Research
-            <span style={{ color: "var(--accent)", marginLeft: 2 }}>AI</span>
+        alignItems: "center",
+        justifyContent: "space-between",
+        background: "var(--bg)",
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <circle cx="11" cy="11" r="7" stroke="var(--text-1)" strokeWidth="1.6"/>
+            <path d="M16.5 16.5L21 21" stroke="var(--text-1)" strokeWidth="1.6" strokeLinecap="round"/>
+            <path d="M8 11h6M11 8v6" stroke="var(--text-1)" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <span style={{
+            fontSize: 14,
+            fontWeight: 500,
+            color: "var(--text-1)",
+            letterSpacing: "-0.01em",
+          }}>
+            Research AI
           </span>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            background: "var(--accent-soft)",
-            border: "1px solid rgba(91,157,255,0.20)",
-            borderRadius: 20,
-            padding: "4px 12px 4px 8px",
-          }}
-        >
-          <span
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: "var(--success)",
-              boxShadow: "0 0 6px var(--success)",
-              display: "inline-block",
-            }}
-          />
-          <span
-            style={{
-              fontSize: 11,
-              color: "var(--text-2)",
-              fontWeight: 500,
-              letterSpacing: "0.02em",
-            }}
-          >
-            Live
-          </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{
+            width: 6, height: 6,
+            borderRadius: "50%",
+            background: "var(--success)",
+            display: "inline-block",
+          }}/>
+          <span style={{ fontSize: 12, color: "var(--text-3)" }}>Live</span>
         </div>
       </header>
 
-      {/* ── Search bar ── */}
-      <div
-        style={{
-          position: "relative",
-          zIndex: 10,
-          borderBottom: "1px solid var(--border)",
-          padding: "24px 32px",
-          backdropFilter: "blur(8px)",
-          background: "rgba(7,11,20,0.5)",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 740,
-            margin: "0 auto",
+      {/* ── Search ────────────────────────────────────────────────────────── */}
+      <div style={{
+        borderBottom: "1px solid var(--border)",
+        padding: "20px 32px",
+        background: "var(--bg)",
+      }}>
+        <div style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          display: "flex",
+          gap: 8,
+        }}>
+          <div style={{
+            flex: 1,
             display: "flex",
-            gap: 10,
             alignItems: "center",
-          }}
-        >
-          {/* Glowing search input (21st.dev conic border pattern) */}
-          <div className={glowClass} style={{ flex: 1 }}>
-            <div
+            gap: 10,
+            background: "var(--bg-subtle)",
+            border: `1px solid ${focused ? "var(--border-hi)" : "var(--border)"}`,
+            borderRadius: "var(--radius)",
+            padding: "0 14px",
+            transition: "border-color 0.15s",
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ opacity: 0.35, flexShrink: 0 }}>
+              <circle cx="11" cy="11" r="7" stroke="var(--text-1)" strokeWidth="2"/>
+              <path d="M16.5 16.5L21 21" stroke="var(--text-1)" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+
+            <input
+              type="text"
+              value={topic}
+              onChange={e => setTopic(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              placeholder="Enter a research topic…"
+              disabled={isResearching}
               style={{
-                background: "var(--bg-input)",
-                border: "1px solid var(--border-mid)",
-                borderRadius: 13,
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "0 16px",
-                transition: "border-color 0.2s",
+                flex: 1,
+                padding: "12px 0",
+                fontSize: 14,
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                color: "var(--text-1)",
+                fontFamily: "inherit",
               }}
-            >
-              {/* Search icon */}
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                style={{ flexShrink: 0, opacity: 0.4 }}
-              >
-                <circle
-                  cx="11" cy="11" r="7"
-                  stroke="var(--text-1)"
-                  strokeWidth="1.8"
-                />
-                <path
-                  d="M16.5 16.5L21 21"
-                  stroke="var(--text-1)"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                />
-              </svg>
+            />
 
-              <input
-                type="text"
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onFocus={() => setInputFocused(true)}
-                onBlur={() => setInputFocused(false)}
-                placeholder="Enter a research topic…"
-                disabled={isResearching}
-                style={{
-                  flex: 1,
-                  padding: "14px 0",
-                  fontSize: 15,
-                  background: "transparent",
-                  border: "none",
-                  outline: "none",
-                  color: "var(--text-1)",
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontWeight: 400,
-                }}
-              />
-
-              {/* Keyboard hint */}
-              {!isResearching && topic.trim() && (
-                <kbd
-                  style={{
-                    fontSize: 11,
-                    color: "var(--text-3)",
-                    background: "var(--bg-card-2)",
-                    border: "1px solid var(--border-mid)",
-                    borderRadius: 5,
-                    padding: "2px 7px",
-                    fontFamily: "'DM Sans', sans-serif",
-                    whiteSpace: "nowrap",
-                    flexShrink: 0,
-                  }}
-                >
-                  ↵
-                </kbd>
-              )}
-            </div>
+            {topic.trim() && !isResearching && (
+              <kbd style={{
+                fontSize: 11,
+                color: "var(--text-3)",
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border-mid)",
+                borderRadius: 4,
+                padding: "2px 6px",
+                fontFamily: "inherit",
+                flexShrink: 0,
+              }}>
+                ↵
+              </kbd>
+            )}
           </div>
 
-          {/* Research button */}
           <button
             onClick={handleResearch}
             disabled={isResearching || !topic.trim()}
             style={{
-              padding: "14px 22px",
-              background: isResearching || !topic.trim()
-                ? "rgba(91,157,255,0.15)"
-                : "linear-gradient(135deg, #5b9dff 0%, #7c6dfa 100%)",
-              color: isResearching || !topic.trim()
-                ? "rgba(91,157,255,0.45)"
-                : "#fff",
+              padding: "0 18px",
+              height: 42,
+              background: isResearching || !topic.trim() ? "var(--bg-elevated)" : "var(--text-1)",
+              color: isResearching || !topic.trim() ? "var(--text-3)" : "var(--bg)",
               border: "1px solid",
-              borderColor: isResearching || !topic.trim()
-                ? "rgba(91,157,255,0.20)"
-                : "transparent",
-              borderRadius: 12,
-              fontSize: 14,
-              fontWeight: 600,
+              borderColor: isResearching || !topic.trim() ? "var(--border)" : "transparent",
+              borderRadius: "var(--radius)",
+              fontSize: 13,
+              fontWeight: 500,
               cursor: isResearching || !topic.trim() ? "not-allowed" : "pointer",
-              fontFamily: "'Sora', sans-serif",
+              fontFamily: "inherit",
               whiteSpace: "nowrap",
-              letterSpacing: "-0.01em",
-              boxShadow: isResearching || !topic.trim()
-                ? "none"
-                : "0 0 20px rgba(91,157,255,0.25)",
-              transition: "all 0.2s",
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              transition: "all 0.15s",
             }}
           >
-            {isResearching ? (
-              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Spinner />
-                Researching…
-              </span>
-            ) : (
-              "Research"
-            )}
+            {isResearching ? <><Spinner /> Researching…</> : "Research"}
           </button>
         </div>
       </div>
 
-      {/* ── Content area ── */}
+      {/* ── Content ───────────────────────────────────────────────────────── */}
       {(hasContent || isError) && (
         <div
           className="content-area"
           style={{
             flex: 1,
-            maxWidth: 1120,
+            maxWidth: 1100,
             width: "100%",
             margin: "0 auto",
             padding: "28px 24px",
             display: "flex",
-            gap: 24,
+            gap: 20,
             alignItems: "flex-start",
-            position: "relative",
-            zIndex: 5,
           }}
         >
-          {/* ── Sidebar ── */}
-          <aside
-            className="sidebar"
-            style={{
-              width: 250,
-              flexShrink: 0,
-              display: "flex",
-              flexDirection: "column",
-              gap: 16,
-            }}
-          >
-            {/* Progress steps */}
+          {/* ── Sidebar ─────────────────────────────────────────────────── */}
+          <aside className="sidebar" style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+
+            {/* Steps */}
             {steps.length > 0 && (
-              <div
-                style={{
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 14,
-                  padding: "18px 20px",
-                  animation: "fadeUp 0.3s ease both",
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    color: "var(--text-3)",
-                    marginBottom: 16,
-                    fontFamily: "'Sora', sans-serif",
-                  }}
-                >
+              <div style={{
+                background: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+                padding: "16px",
+                animation: "fadeUp 0.2s ease both",
+              }}>
+                <p style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "var(--text-3)",
+                  marginBottom: 14,
+                }}>
                   Progress
                 </p>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                   {steps.map((step, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        position: "relative",
-                        paddingLeft: 24,
-                        paddingBottom: i < steps.length - 1 ? 16 : 0,
-                        animation: `fadeUp 0.25s ease ${i * 0.06}s both`,
-                      }}
-                    >
-                      {/* Timeline connector */}
+                    <div key={i} style={{
+                      position: "relative",
+                      paddingLeft: 22,
+                      paddingBottom: i < steps.length - 1 ? 14 : 0,
+                      animation: `fadeUp 0.2s ease ${i * 0.05}s both`,
+                    }}>
+                      {/* connector line */}
                       {i < steps.length - 1 && (
-                        <div
-                          className={`step-connector${step.done ? " done" : ""}`}
-                        />
+                        <div style={{
+                          position: "absolute",
+                          left: 6,
+                          top: 16,
+                          bottom: -2,
+                          width: 1,
+                          background: step.done ? "var(--border-hi)" : "var(--border)",
+                          transition: "background 0.4s",
+                        }}/>
                       )}
 
-                      {/* Icon */}
-                      <span
-                        style={{
-                          position: "absolute",
-                          left: 0,
-                          top: 1,
-                        }}
-                      >
+                      <span style={{ position: "absolute", left: 0, top: 1 }}>
                         {step.done ? <Check /> : <Spinner />}
                       </span>
 
-                      <span
-                        style={{
-                          fontSize: 13,
-                          color: step.done ? "var(--text-3)" : "var(--text-1)",
-                          lineHeight: 1.4,
-                          display: "block",
-                          transition: "color 0.3s",
-                        }}
-                      >
+                      <span style={{
+                        fontSize: 12.5,
+                        color: step.done ? "var(--text-3)" : "var(--text-2)",
+                        lineHeight: 1.45,
+                        display: "block",
+                        transition: "color 0.3s",
+                      }}>
                         {step.message}
                       </span>
                     </div>
@@ -584,293 +421,155 @@ export default function Home() {
               </div>
             )}
 
-            {/* Query chips */}
+            {/* Queries */}
             {queries.length > 0 && (
-              <div
-                style={{
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 14,
-                  padding: "18px 20px",
-                  animation: "fadeUp 0.3s ease 0.1s both",
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    color: "var(--text-3)",
-                    marginBottom: 12,
-                    fontFamily: "'Sora', sans-serif",
-                  }}
-                >
+              <div style={{
+                background: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+                padding: "16px",
+                animation: "fadeUp 0.2s ease 0.05s both",
+              }}>
+                <p style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "var(--text-3)",
+                  marginBottom: 12,
+                }}>
                   Queries
                 </p>
 
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 6 }}
-                >
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                   {queries.map((q, i) => (
-                    <span
-                      key={i}
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 7,
-                        fontSize: 12,
-                        color: "var(--text-2)",
-                        lineHeight: 1.45,
-                        animation: `chipIn 0.25s ease ${i * 0.07}s both`,
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 4,
-                          height: 4,
-                          borderRadius: "50%",
-                          background: "var(--accent)",
-                          flexShrink: 0,
-                          marginTop: 5,
-                          opacity: 0.7,
-                        }}
-                      />
-                      {q}
-                    </span>
+                    <div key={i} style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 8,
+                      animation: `fadeUp 0.2s ease ${i * 0.06}s both`,
+                    }}>
+                      <span style={{
+                        width: 3,
+                        height: 3,
+                        borderRadius: "50%",
+                        background: "var(--border-hi)",
+                        flexShrink: 0,
+                        marginTop: 6,
+                      }}/>
+                      <span style={{ fontSize: 12, color: "var(--text-3)", lineHeight: 1.5 }}>
+                        {q}
+                      </span>
+                    </div>
                   ))}
                 </div>
               </div>
             )}
           </aside>
 
-          {/* ── Report / main area ── */}
+          {/* ── Report ──────────────────────────────────────────────────── */}
           <main style={{ flex: 1, minWidth: 0 }}>
             {isError ? (
-              /* Error state */
-              <div
-                style={{
-                  background: "var(--bg-card)",
-                  border: "1px solid rgba(255,107,107,0.20)",
-                  borderRadius: 14,
-                  padding: "36px 40px",
-                  textAlign: "center",
-                  animation: "fadeUp 0.2s ease both",
-                }}
-              >
-                <div
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: "50%",
-                    background: "var(--error-soft)",
-                    border: "1px solid rgba(255,107,107,0.20)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    margin: "0 auto 16px",
-                  }}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M12 8v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-                      stroke="var(--error)"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-                <p
-                  style={{
-                    fontSize: 14,
-                    color: "var(--error)",
-                    marginBottom: 20,
-                    fontWeight: 500,
-                  }}
-                >
+              <div style={{
+                background: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+                padding: "32px",
+                animation: "fadeUp 0.2s ease both",
+                textAlign: "center",
+              }}>
+                <p style={{ fontSize: 13, color: "var(--error)", marginBottom: 16 }}>
                   {error}
                 </p>
                 <button
                   onClick={reset}
                   style={{
-                    padding: "9px 22px",
-                    background: "linear-gradient(135deg, #5b9dff 0%, #7c6dfa 100%)",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 8,
+                    padding: "7px 16px",
+                    background: "var(--bg-elevated)",
+                    color: "var(--text-1)",
+                    border: "1px solid var(--border-mid)",
+                    borderRadius: "var(--radius)",
                     fontSize: 13,
-                    fontWeight: 600,
+                    fontWeight: 500,
                     cursor: "pointer",
-                    fontFamily: "'Sora', sans-serif",
+                    fontFamily: "inherit",
                   }}
                 >
                   Try again
                 </button>
               </div>
             ) : (
-              /* Report card (liquid glass-inspired dark card from 21st.dev) */
-              <div
-                style={{
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 14,
-                  padding: "32px 36px",
-                  minHeight: 220,
-                  boxShadow:
-                    "0 0 0 1px var(--border), 0 20px 60px rgba(0,0,0,0.4)",
-                  /* Subtle inner highlight at top — liquid glass feel */
-                  backgroundImage:
-                    "linear-gradient(to bottom, rgba(255,255,255,0.025) 0%, transparent 60px)",
-                  animation: "fadeUp 0.3s ease both",
-                }}
-              >
+              <div style={{
+                background: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+                padding: "28px 32px",
+                minHeight: 200,
+                animation: "fadeUp 0.2s ease both",
+              }}>
                 {report ? (
                   <>
                     <div id="report-content" className="report-body">
                       <ReactMarkdown>{report}</ReactMarkdown>
-
-                      {/* Blinking cursor while streaming */}
                       {isResearching && (
-                        <span
-                          style={{
-                            display: "inline-block",
-                            width: 2,
-                            height: "1em",
-                            background: "var(--accent)",
-                            marginLeft: 2,
-                            verticalAlign: "text-bottom",
-                            animation: "blink 1s step-start infinite",
-                            borderRadius: 1,
-                          }}
-                        />
+                        <span style={{
+                          display: "inline-block",
+                          width: 2,
+                          height: "1em",
+                          background: "var(--text-2)",
+                          marginLeft: 2,
+                          verticalAlign: "text-bottom",
+                          animation: "blink 1s step-start infinite",
+                          borderRadius: 1,
+                        }}/>
                       )}
                     </div>
 
-                    {/* Download buttons */}
                     {isDone && (
-                      <div
-                        style={{
-                          marginTop: 32,
-                          paddingTop: 20,
-                          borderTop: "1px solid var(--border)",
-                          display: "flex",
-                          justifyContent: "flex-end",
-                          gap: 10,
-                          animation: "fadeUp 0.3s ease both",
-                        }}
-                      >
-                        {/* Markdown download */}
-                        <button
-                          className="dl-btn"
-                          onClick={handleDownload}
-                        >
-                          <svg
-                            width="13"
-                            height="13"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                          >
-                            <path
-                              d="M12 3v13M7 12l5 5 5-5M4 20h16"
-                              stroke="currentColor"
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
+                      <div style={{
+                        marginTop: 28,
+                        paddingTop: 16,
+                        borderTop: "1px solid var(--border)",
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: 8,
+                        animation: "fadeIn 0.3s ease both",
+                      }}>
+                        <button className="dl-btn" onClick={handleDownload}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 3v13M7 12l5 5 5-5M4 20h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
-                          .md
+                          Markdown
                         </button>
-
-                        {/* PDF download */}
-                        <button
-                          className="dl-btn"
-                          onClick={handleDownloadPdf}
-                          disabled={pdfGenerating}
-                        >
-                          {pdfGenerating ? (
-                            <Spinner />
-                          ) : (
-                            <svg
-                              width="13"
-                              height="13"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                            >
-                              <rect
-                                x="4"
-                                y="2"
-                                width="12"
-                                height="17"
-                                rx="2"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                              />
-                              <path
-                                d="M16 2l4 4v15a1 1 0 01-1 1H5"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                strokeLinecap="round"
-                              />
-                              <path
-                                d="M8 10h6M8 13h4"
-                                stroke="currentColor"
-                                strokeWidth="1.6"
-                                strokeLinecap="round"
-                              />
+                        <button className="dl-btn" onClick={handleDownloadPdf} disabled={pdfGenerating}>
+                          {pdfGenerating ? <Spinner /> : (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M14 2v6h6M9 13h6M9 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
                             </svg>
                           )}
-                          {pdfGenerating ? "Generating…" : ".pdf"}
+                          {pdfGenerating ? "Generating…" : "PDF"}
                         </button>
                       </div>
                     )}
                   </>
                 ) : (
-                  /* Generating placeholder */
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 16,
-                      padding: "8px 0",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        color: "var(--text-3)",
-                        fontSize: 14,
-                      }}
-                    >
+                  /* skeleton while waiting for first token */
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                       <Spinner />
-                      <span>Generating report…</span>
+                      <span style={{ fontSize: 13, color: "var(--text-3)" }}>Generating report…</span>
                     </div>
-
-                    {/* Skeleton shimmer lines */}
-                    {[100, 85, 92, 70].map((w, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          height: 12,
-                          width: `${w}%`,
-                          borderRadius: 6,
-                          background:
-                            "linear-gradient(90deg, var(--bg-card-2) 25%, var(--border-mid) 50%, var(--bg-card-2) 75%)",
-                          backgroundSize: "200% 100%",
-                          animation: `shimmer 1.8s ease-in-out ${i * 0.15}s infinite`,
-                          opacity: 0.5,
-                        }}
-                      />
+                    {[90, 75, 85, 60, 80].map((w, i) => (
+                      <div key={i} style={{
+                        height: 11,
+                        width: `${w}%`,
+                        borderRadius: 4,
+                        background: `linear-gradient(90deg, var(--bg-elevated) 25%, var(--border-mid) 50%, var(--bg-elevated) 75%)`,
+                        backgroundSize: "200% 100%",
+                        animation: `shimmer 1.6s ease-in-out ${i * 0.1}s infinite`,
+                      }}/>
                     ))}
-
-                    <style>{`
-                      @keyframes shimmer {
-                        0%   { background-position: 200% 0; }
-                        100% { background-position: -200% 0; }
-                      }
-                    `}</style>
                   </div>
                 )}
               </div>
@@ -879,124 +578,54 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── Hero / empty state ── */}
+      {/* ── Empty state ───────────────────────────────────────────────────── */}
       {!hasContent && !isError && (
-        <div
-          style={{
-            flex: 1,
+        <div style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "80px 24px",
+          animation: "fadeUp 0.4s ease both",
+        }}>
+          <div style={{
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            background: "var(--bg-card)",
+            border: "1px solid var(--border-mid)",
             display: "flex",
-            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            padding: "60px 24px",
-            gap: 0,
-            position: "relative",
-            zIndex: 5,
-            animation: "heroIn 0.6s ease both",
-          }}
-        >
-          {/* Large decorative search icon */}
-          <div
-            style={{
-              width: 72,
-              height: 72,
-              borderRadius: "50%",
-              background: "var(--bg-card)",
-              border: "1px solid var(--border-mid)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 28,
-              boxShadow: "0 0 40px var(--accent-glow)",
-            }}
-          >
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
-              <circle
-                cx="11"
-                cy="11"
-                r="7"
-                stroke="url(#hero-g)"
-                strokeWidth="1.6"
-              />
-              <path
-                d="M16.5 16.5L21 21"
-                stroke="url(#hero-g)"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-              />
-              <path
-                d="M8 11h6M11 8v6"
-                stroke="url(#hero-g)"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-              <defs>
-                <linearGradient
-                  id="hero-g"
-                  x1="0" y1="0" x2="24" y2="24"
-                  gradientUnits="userSpaceOnUse"
-                >
-                  <stop stopColor="#5b9dff" />
-                  <stop offset="1" stopColor="#7c6dfa" />
-                </linearGradient>
-              </defs>
+            marginBottom: 20,
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="11" cy="11" r="7" stroke="var(--text-2)" strokeWidth="1.6"/>
+              <path d="M16.5 16.5L21 21" stroke="var(--text-2)" strokeWidth="1.6" strokeLinecap="round"/>
+              <path d="M8 11h6M11 8v6" stroke="var(--text-2)" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           </div>
 
-          <h1
-            style={{
-              fontFamily: "'Sora', sans-serif",
-              fontSize: 28,
-              fontWeight: 600,
-              letterSpacing: "-0.03em",
-              color: "var(--text-1)",
-              marginBottom: 12,
-              textAlign: "center",
-            }}
-          >
-            What do you want to research?
-          </h1>
-
-          <p
-            style={{
-              fontSize: 15,
-              color: "var(--text-3)",
-              maxWidth: 380,
-              textAlign: "center",
-              lineHeight: 1.7,
-              marginBottom: 40,
-            }}
-          >
-            Enter any topic above. The AI plans targeted queries, searches the web in parallel, and writes a comprehensive report.
+          <p style={{
+            fontSize: 15,
+            fontWeight: 500,
+            color: "var(--text-1)",
+            marginBottom: 8,
+            letterSpacing: "-0.01em",
+          }}>
+            Enter a topic to get started
           </p>
 
-          {/* Feature pills */}
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-            {[
-              { icon: "⚡", label: "Parallel search" },
-              { icon: "📝", label: "Streamed report" },
-              { icon: "⬇", label: "PDF & Markdown" },
-            ].map(({ icon, label }) => (
-              <div
-                key={label}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 7,
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 20,
-                  padding: "6px 14px",
-                  fontSize: 12,
-                  color: "var(--text-3)",
-                  fontWeight: 500,
-                }}
-              >
-                <span style={{ fontSize: 13 }}>{icon}</span>
-                {label}
-              </div>
-            ))}
-          </div>
+          <p style={{
+            fontSize: 13,
+            color: "var(--text-3)",
+            maxWidth: 340,
+            textAlign: "center",
+            lineHeight: 1.6,
+          }}>
+            The AI plans search queries, researches in parallel, and writes a comprehensive report.
+          </p>
         </div>
       )}
     </div>
