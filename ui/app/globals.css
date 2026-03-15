@@ -1,24 +1,25 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 /* ── Tokens ──────────────────────────────────────────────────────────────── */
 
 :root {
-  --bg:          #0a0a0a;
-  --bg-subtle:   #111111;
-  --bg-card:     #141414;
-  --bg-elevated: #1a1a1a;
-  --border:      #262626;
-  --border-mid:  #2e2e2e;
-  --border-hi:   #3a3a3a;
-  --text-1:      #ededed;
-  --text-2:      #a1a1a1;
-  --text-3:      #555555;
-  --accent:      #5c8fff;
-  --accent-soft: rgba(92,143,255,0.08);
-  --success:     #22c55e;
-  --error:       #ef4444;
-  --error-soft:  rgba(239,68,68,0.08);
-  --radius:      8px;
+  --bg:          #ffffff;
+  --bg-subtle:   #f9fafb;
+  --bg-card:     #ffffff;
+  --bg-hover:    #f3f4f6;
+  --border:      #e5e7eb;
+  --border-mid:  #d1d5db;
+  --text-1:      #111827;
+  --text-2:      #6b7280;
+  --text-3:      #9ca3af;
+  --accent:      #4f6ef7;
+  --accent-hover:#3d5ce6;
+  --accent-soft: #eef2ff;
+  --success:     #16a34a;
+  --error:       #dc2626;
+  --radius:      10px;
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:   0 4px 12px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.04);
 }
 
 /* ── Reset ───────────────────────────────────────────────────────────────── */
@@ -27,8 +28,8 @@
 html, body { height: 100%; }
 
 body {
-  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: var(--bg);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-subtle);
   color: var(--text-1);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -41,8 +42,8 @@ body {
   width: 13px;
   height: 13px;
   border-radius: 50%;
-  border: 1.5px solid var(--border-hi);
-  border-top-color: var(--text-2);
+  border: 2px solid #e5e7eb;
+  border-top-color: var(--accent);
   animation: spin 0.7s linear infinite;
   flex-shrink: 0;
 }
@@ -55,8 +56,8 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--success);
   color: #fff;
@@ -69,26 +70,26 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 14px;
+  padding: 8px 16px;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-2);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-mid);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition: all 0.15s;
 }
 
 .dl-btn:hover {
   color: var(--text-1);
-  border-color: var(--border-hi);
-  background: var(--bg-card);
+  border-color: var(--border-mid);
+  background: var(--bg-hover);
 }
 
 .dl-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
   pointer-events: none;
 }
@@ -118,7 +119,7 @@ body {
 /* ── Report prose ────────────────────────────────────────────────────────── */
 
 .report-body {
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1.8;
   color: var(--text-2);
   animation: fadeIn 0.3s ease;
@@ -126,7 +127,7 @@ body {
 
 .report-body h1 {
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-1);
   margin: 0 0 16px;
   line-height: 1.3;
@@ -134,7 +135,7 @@ body {
 }
 
 .report-body h2 {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-1);
   margin: 28px 0 8px;
@@ -142,17 +143,15 @@ body {
 }
 
 .report-body h3 {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-3);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin: 20px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin: 20px 0 6px;
 }
 
 .report-body p     { margin: 0 0 14px; }
 .report-body ul,
-.report-body ol    { padding-left: 20px; margin: 0 0 14px; }
+.report-body ol    { padding-left: 22px; margin: 0 0 14px; }
 .report-body li    { margin-bottom: 5px; }
 .report-body strong { color: var(--text-1); font-weight: 600; }
 
@@ -163,17 +162,16 @@ body {
 .report-body a:hover { text-decoration: underline; }
 
 .report-body code {
-  font-family: 'SF Mono', 'Cascadia Code', Menlo, monospace;
+  font-family: 'SF Mono', Menlo, monospace;
   font-size: 12.5px;
-  color: var(--text-1);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  padding: 1px 5px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 1px 6px;
   border-radius: 4px;
 }
 
 .report-body pre {
-  background: var(--bg-elevated);
+  background: var(--bg-subtle);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px;
@@ -183,16 +181,16 @@ body {
 
 .report-body pre code {
   background: none;
-  border: none;
   padding: 0;
-  font-size: 13px;
+  color: var(--text-1);
 }
 
 .report-body blockquote {
-  border-left: 2px solid var(--border-hi);
+  border-left: 3px solid var(--border-mid);
   padding: 4px 16px;
   color: var(--text-3);
   margin: 0 0 14px;
+  font-style: italic;
 }
 
 .report-body hr {
