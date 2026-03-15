@@ -128,7 +128,7 @@ export default function Home() {
       // position:fixed elements that are outside the viewport.
       const wrapper = document.createElement("div");
       wrapper.style.cssText =
-        "position:absolute;left:-9999px;top:0;width:800px;padding:40px;" +
+        "position:absolute;left:0;top:" + (document.body.scrollHeight + 200) + "px;width:800px;padding:40px;" +
         "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
         "font-size:14px;line-height:1.75;color:#374151;background:#ffffff;";
 
