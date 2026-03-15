@@ -122,35 +122,95 @@ export default function Home() {
       const mod = (await import("html2pdf.js")) as any;
       const html2pdf = (mod.default ?? mod) as typeof import("html2pdf.js");
 
+      // Build wrapper with fully explicit inline styles — no CSS vars or classes,
+      // because html2canvas cannot resolve CSS custom properties off-screen.
       const wrapper = document.createElement("div");
-      wrapper.style.cssText = "position:fixed;left:-9999px;top:0;width:800px;font-family:-apple-system,sans-serif;color:#111;background:#fff;";
+      wrapper.style.cssText =
+        "position:fixed;left:-9999px;top:0;width:800px;padding:40px;" +
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
+        "font-size:14px;line-height:1.75;color:#374151;background:#ffffff;";
 
+      // Title
       const title = document.createElement("h1");
       title.textContent = topic.trim();
-      title.style.cssText = "font-size:22px;font-weight:700;margin:0 0 20px;";
+      title.style.cssText =
+        "font-size:24px;font-weight:700;color:#111827;margin:0 0 20px;" +
+        "letter-spacing:-0.02em;padding-bottom:16px;border-bottom:2px solid #e5e7eb;";
       wrapper.appendChild(title);
 
+      // Queries
       if (queries.length > 0) {
         const box = document.createElement("div");
-        box.style.cssText = "margin-bottom:20px;padding:12px 16px;background:#f9fafb;border-radius:8px;";
+        box.style.cssText =
+          "margin-bottom:24px;padding:14px 18px;background:#f9fafb;" +
+          "border-radius:8px;border:1px solid #e5e7eb;";
         const label = document.createElement("p");
         label.textContent = "Search Queries";
-        label.style.cssText = "font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:#9ca3af;margin:0 0 8px;";
+        label.style.cssText =
+          "font-size:10px;font-weight:600;text-transform:uppercase;" +
+          "letter-spacing:0.08em;color:#9ca3af;margin:0 0 10px;";
         box.appendChild(label);
         queries.forEach(q => {
           const chip = document.createElement("span");
           chip.textContent = q;
-          chip.style.cssText = "display:inline-block;margin:2px 4px 2px 0;padding:3px 9px;background:#eef2ff;color:#4f6ef7;border-radius:4px;font-size:12px;";
+          chip.style.cssText =
+            "display:inline-block;margin:2px 4px 2px 0;padding:4px 10px;" +
+            "background:#eef2ff;color:#4f6ef7;border-radius:4px;font-size:12px;font-weight:500;";
           box.appendChild(chip);
         });
         wrapper.appendChild(box);
       }
 
-      const el = document.getElementById("report-content");
-      if (el) wrapper.appendChild(el.cloneNode(true) as HTMLElement);
+      // Report content — clone innerHTML and re-style every element explicitly
+      // so html2canvas captures real computed colors instead of unresolved vars.
+      const reportEl = document.getElementById("report-content");
+      if (reportEl) {
+        const content = document.createElement("div");
+        content.innerHTML = reportEl.innerHTML;
+        content.style.cssText = "color:#374151;font-size:14px;line-height:1.75;";
+
+        content.querySelectorAll<HTMLElement>("h1").forEach(h => {
+          h.style.cssText = "font-size:20px;font-weight:700;color:#111827;margin:0 0 14px;letter-spacing:-0.01em;";
+        });
+        content.querySelectorAll<HTMLElement>("h2").forEach(h => {
+          h.style.cssText = "font-size:16px;font-weight:600;color:#111827;margin:24px 0 8px;";
+        });
+        content.querySelectorAll<HTMLElement>("h3").forEach(h => {
+          h.style.cssText = "font-size:13px;font-weight:600;color:#6b7280;margin:18px 0 6px;";
+        });
+        content.querySelectorAll<HTMLElement>("p").forEach(p => {
+          p.style.cssText = "margin:0 0 12px;color:#374151;";
+        });
+        content.querySelectorAll<HTMLElement>("ul,ol").forEach(l => {
+          l.style.cssText = "padding-left:22px;margin:0 0 12px;color:#374151;";
+        });
+        content.querySelectorAll<HTMLElement>("li").forEach(li => {
+          li.style.cssText = "margin-bottom:5px;color:#374151;";
+        });
+        content.querySelectorAll<HTMLElement>("strong").forEach(s => {
+          s.style.cssText = "font-weight:600;color:#111827;";
+        });
+        content.querySelectorAll<HTMLElement>("a").forEach(a => {
+          a.style.cssText = "color:#4f6ef7;text-decoration:none;";
+        });
+        content.querySelectorAll<HTMLElement>("code").forEach(c => {
+          c.style.cssText =
+            "font-family:'SF Mono',Menlo,monospace;font-size:12px;" +
+            "background:#f3f4f6;color:#4f6ef7;padding:1px 5px;border-radius:3px;";
+        });
+        content.querySelectorAll<HTMLElement>("blockquote").forEach(b => {
+          b.style.cssText =
+            "border-left:3px solid #e5e7eb;padding:4px 16px;color:#9ca3af;" +
+            "margin:0 0 12px;font-style:italic;";
+        });
+        content.querySelectorAll<HTMLElement>("hr").forEach(hr => {
+          hr.style.cssText = "border:none;border-top:1px solid #e5e7eb;margin:20px 0;";
+        });
+        wrapper.appendChild(content);
+      }
 
       document.body.appendChild(wrapper);
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 300));
       const target = wrapper.cloneNode(true) as HTMLElement;
       document.body.appendChild(target);
 
