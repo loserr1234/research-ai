@@ -1,16 +1,5 @@
-import os
 import re
-from dotenv import load_dotenv
-from openai import AsyncOpenAI
-
-load_dotenv()
-
-client = AsyncOpenAI(
-    base_url="https://integrate.api.nvidia.com/v1",
-    api_key=os.getenv("NVIDIA_API_KEY")
-)
-
-NVIDIA_MODEL = "meta/llama-3.3-70b-instruct"
+from agents.client import client, NVIDIA_MODEL
 
 async def write_report(topic: str, findings: list[dict]):
     """
@@ -62,14 +51,44 @@ async def write_report(topic: str, findings: list[dict]):
         stream=True,
     )
 
+    # Use a buffer to handle <think>...</think> tags that may be split
+    # across multiple chunks before stripping and yielding clean tokens.
+    buffer = ""
     inside_think = False
+
     async for chunk in completion:
         token = chunk.choices[0].delta.content
-        if token:
-            if "<think>" in token:
-                inside_think = True
-            if "</think>" in token:
+        if not token:
+            continue
+
+        buffer += token
+
+        # Process the buffer in a loop until no more complete tags remain
+        while True:
+            if inside_think:
+                end = buffer.find("</think>")
+                if end == -1:
+                    # End tag not yet arrived — keep buffering
+                    break
+                # Discard everything up to and including </think>
+                buffer = buffer[end + len("</think>"):]
                 inside_think = False
-                continue
-            if not inside_think:
-                yield token
+            else:
+                start = buffer.find("<think>")
+                if start == -1:
+                    # No opening tag — yield whatever is safely before any
+                    # partial tag that may be forming at the tail
+                    safe = buffer[:-len("<think>")]  # hold back potential partial
+                    if len(buffer) >= len("<think>"):
+                        yield buffer[: len(buffer) - len("<think>") + 1]
+                        buffer = buffer[len(buffer) - len("<think>") + 1 :]
+                    break
+                # Yield everything before the opening tag, then enter think mode
+                if start > 0:
+                    yield buffer[:start]
+                buffer = buffer[start + len("<think>"):]
+                inside_think = True
+
+    # Flush any remaining content in the buffer
+    if buffer and not inside_think:
+        yield buffer

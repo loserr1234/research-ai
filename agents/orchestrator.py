@@ -1,17 +1,6 @@
-import os
 import json
 import re
-from dotenv import load_dotenv
-from openai import AsyncOpenAI
-
-load_dotenv()
-
-client = AsyncOpenAI(
-    base_url="https://integrate.api.nvidia.com/v1",
-    api_key=os.getenv("NVIDIA_API_KEY")
-)
-
-NVIDIA_MODEL = "meta/llama-3.3-70b-instruct"
+from agents.client import client, NVIDIA_MODEL
 
 async def plan_research(topic: str) -> list[str]:
     """
